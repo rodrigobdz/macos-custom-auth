@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+#
+# Add YubiKey and TouchID as authentication methods to macOS.
+
+shopt -s inherit_errexit
+set -o errexit
+set -o pipefail
+set -o nounset
+
+# shellcheck disable=SC1091
+source utils.sh
+
+source_dir_pam_modules="./etc/pam.d"
+dest_dir_pam_modules="/etc/pam.d"
+
+declare -a directories=("$source_dir_pam_modules" "$dest_dir_pam_modules")
+
+for dir in "${directories[@]}"; do
+  fancy_echo "Checking if directory '$dir' exists"
+  if [ ! -d "$dir" ]; then
+    echo "Directory '$dir' does not exist."
+    exit 1
+  fi
+done
+
+fancy_echo "Iterate over files in the source directory"
+for file in "$source_dir_pam_modules"/*; do
+  # Extract the filename from the full path
+  filename=$(basename "$file")
+
+  fancy_echo "Comparing source and destination files"
+  fancy_echo "Command: delta $source_dir_pam_modules/$filename $dest_dir_pam_modules/$filename"
+
+  # Disable errexit to allow delta to return a non-zero exit code
+  # if there are differences between the files
+  set +o errexit
+  delta "$source_dir_pam_modules/$filename" "$dest_dir_pam_modules/$filename"
+  set -o errexit
+done
+
+# Ask for user confirmation
+read -p "Proceed with the changes? Press Enter to continue."
+
+fancy_echo "Move and copy files with sudo privileges"
+for file in "$source_dir_pam_modules"/*; do
+  filename=$(basename "$file")
+
+  fancy_echo "Backing up $dest_dir_pam_modules/$filename"
+  sudo cp "$dest_dir_pam_modules/$filename" "$dest_dir_pam_modules/$filename.bak"
+
+  fancy_echo "Moving $source_dir_pam_modules/$filename to $dest_dir_pam_modules/$filename"
+  sudo cp "$source_dir_pam_modules/$filename" "$dest_dir_pam_modules/$filename"
+done
+
+fancy_echo "Done."
