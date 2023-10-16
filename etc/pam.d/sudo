@@ -1,4 +1,5 @@
 # sudo: auth account password session
+auth       include        sudo_local
 auth       sufficient     /opt/homebrew/lib/security/pam_yubico.so mode=challenge-response
 auth       sufficient     pam_tid.so
 auth       sufficient     pam_smartcard.so
